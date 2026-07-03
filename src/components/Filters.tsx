@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import type { PeriodType } from '../types'
+import type { Granularity } from '../types'
 
 const regions = ['Москва', 'Санкт-Петербург', 'Казань', 'Новосибирск', 'Екатеринбург']
 const storeOptions = [
@@ -80,86 +80,70 @@ function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
 }
 
 interface FiltersProps {
-  periodType: PeriodType
-  selectedPeriod: string
+  granularity: Granularity
+  dateStart: string
+  dateEnd: string
   regions: string[]
   stores: string[]
   categories: string[]
   channels: string[]
-  onPeriodTypeChange: (t: PeriodType) => void
-  onPeriodChange: (p: string) => void
+  onGranularityChange: (g: Granularity) => void
+  onDateStartChange: (d: string) => void
+  onDateEndChange: (d: string) => void
   onRegionsChange: (r: string[]) => void
   onStoresChange: (s: string[]) => void
   onCategoriesChange: (c: string[]) => void
   onChannelsChange: (c: string[]) => void
 }
 
-const periodOptions: Record<PeriodType, string[]> = {
-  month: [
-    '2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06',
-    '2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12',
-  ],
-  quarter: ['2025-Q1', '2025-Q2', '2025-Q3', '2025-Q4'],
-  year: ['2025'],
-}
-
-const monthLabels: Record<string, string> = {
-  '2025-01': 'Январь', '2025-02': 'Февраль', '2025-03': 'Март',
-  '2025-04': 'Апрель', '2025-05': 'Май', '2025-06': 'Июнь',
-  '2025-07': 'Июль', '2025-08': 'Август', '2025-09': 'Сентябрь',
-  '2025-10': 'Октябрь', '2025-11': 'Ноябрь', '2025-12': 'Декабрь',
-}
-
 export default function Filters({
-  periodType, selectedPeriod,
+  granularity, dateStart, dateEnd,
   regions: selectedRegions, stores: selectedStores,
   categories: selectedCategories, channels: selectedChannels,
-  onPeriodTypeChange, onPeriodChange,
+  onGranularityChange, onDateStartChange, onDateEndChange,
   onRegionsChange, onStoresChange, onCategoriesChange, onChannelsChange,
 }: FiltersProps) {
-  const options = periodOptions[periodType]
-
   return (
     <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 pb-4 pt-4 px-0">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Период</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Детализация</label>
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
-            {(['month', 'quarter', 'year'] as const).map(pt => (
+            {(['day', 'week', 'month'] as const).map(g => (
               <button
-                key={pt}
+                key={g}
                 type="button"
-                onClick={() => {
-                  if (pt !== periodType) {
-                    onPeriodTypeChange(pt)
-                    onPeriodChange(periodOptions[pt][0])
-                  }
-                }}
+                onClick={() => onGranularityChange(g)}
                 className={`px-3 py-1.5 text-sm rounded-md cursor-pointer ${
-                  periodType === pt
+                  granularity === g
                     ? 'bg-gray-800 text-white'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                {pt === 'month' ? 'Месяц' : pt === 'quarter' ? 'Квартал' : 'Год'}
+                {g === 'day' ? 'День' : g === 'week' ? 'Неделя' : 'Месяц'}
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Значение</label>
-          <select
-            value={selectedPeriod}
-            onChange={e => onPeriodChange(e.target.value)}
+          <label className="block text-xs font-medium text-gray-500 mb-1">С</label>
+          <input
+            type="date"
+            value={dateStart}
+            onChange={e => onDateStartChange(e.target.value)}
             className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
-          >
-            {options.map(opt => (
-              <option key={opt} value={opt}>
-                {monthLabels[opt] || opt}
-              </option>
-            ))}
-          </select>
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">По</label>
+          <input
+            type="date"
+            value={dateEnd}
+            onChange={e => onDateEndChange(e.target.value)}
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          />
         </div>
 
         <div className="min-w-[140px]">

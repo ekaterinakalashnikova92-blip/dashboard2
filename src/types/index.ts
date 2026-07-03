@@ -10,11 +10,12 @@ export interface SalesRecord {
   units_sold: number
 }
 
-export type PeriodType = 'month' | 'quarter' | 'year'
+export type Granularity = 'day' | 'week' | 'month'
 
 export interface FilterState {
-  periodType: PeriodType
-  selectedPeriod: string
+  granularity: Granularity
+  dateStart: string
+  dateEnd: string
   regions: string[]
   stores: string[]
   categories: string[]

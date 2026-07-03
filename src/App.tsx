@@ -1,72 +1,50 @@
 import { useState, useMemo, useCallback } from 'react'
 import { salesData } from './data/mockData'
-import type { SalesRecord, PeriodType } from './types'
+import type { SalesRecord, Granularity } from './types'
 import Filters from './components/Filters'
 import KPICards from './components/KPICards'
 import Charts from './components/Charts'
 import SalesTable from './components/SalesTable'
 import Insights from './components/Insights'
 
-function getPeriodMonths(periodType: PeriodType, period: string): string[] {
-  if (periodType === 'month') {
-    return [period]
+function getDateBounds(data: SalesRecord[]): { min: string; max: string } {
+  let min = data[0]?.date ?? '2025-01-01'
+  let max = min
+  for (const r of data) {
+    if (r.date < min) min = r.date
+    if (r.date > max) max = r.date
   }
-  if (periodType === 'quarter') {
-    const q = parseInt(period.slice(-1), 10)
-    const startMonth = (q - 1) * 3 + 1
-    return Array.from({ length: 3 }, (_, i) => {
-      const m = startMonth + i
-      return `2025-${String(m).padStart(2, '0')}`
-    })
-  }
-  return [
-    '2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06',
-    '2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12',
-  ]
+  return { min, max }
 }
 
-function getPreviousPeriod(periodType: PeriodType, period: string): string[] {
-  if (periodType === 'month') {
-    const m = parseInt(period.slice(-2), 10)
-    if (m <= 1) return []
-    const prev = `2025-${String(m - 1).padStart(2, '0')}`
-    return [prev]
-  }
-  if (periodType === 'quarter') {
-    const q = parseInt(period.slice(-1), 10)
-    if (q <= 1) return []
-    const prevQ = q - 1
-    const startMonth = (prevQ - 1) * 3 + 1
-    return Array.from({ length: 3 }, (_, i) => {
-      const m = startMonth + i
-      return `2025-${String(m).padStart(2, '0')}`
-    })
-  }
-  const prevMonths = [
-    '2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06',
-  ]
-  return prevMonths
+function daysBetween(a: string, b: string): number {
+  return Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 86400000)
 }
 
-function filterByPeriod(data: SalesRecord[], months: string[]): SalesRecord[] {
-  if (months.length === 0) return []
-  const monthSet = new Set(months)
-  return data.filter(r => monthSet.has(r.date.slice(0, 7)))
+function getPreviousDateRange(dateStart: string, dateEnd: string): { start: string; end: string } {
+  const diff = daysBetween(dateStart, dateEnd)
+  const startMs = new Date(dateStart).getTime() - (diff + 1) * 86400000
+  const endMs = new Date(dateStart).getTime() - 86400000
+  const start = new Date(startMs).toISOString().slice(0, 10)
+  const end = new Date(endMs).toISOString().slice(0, 10)
+  return { start, end }
 }
 
 export default function App() {
-  const [periodType, setPeriodType] = useState<PeriodType>('month')
-  const [selectedPeriod, setSelectedPeriod] = useState('2025-01')
+  const bounds = useMemo(() => getDateBounds(salesData), [])
+
+  const [granularity, setGranularity] = useState<Granularity>('month')
+  const [dateStart, setDateStart] = useState(bounds.min)
+  const [dateEnd, setDateEnd] = useState(bounds.max)
   const [selectedRegions, setSelectedRegions] = useState<string[]>([])
   const [selectedStores, setSelectedStores] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedChannels, setSelectedChannels] = useState<string[]>([])
 
-  const currentMonths = useMemo(() => getPeriodMonths(periodType, selectedPeriod), [periodType, selectedPeriod])
-  const previousMonths = useMemo(() => getPreviousPeriod(periodType, selectedPeriod), [periodType, selectedPeriod])
+  const previousRange = useMemo(() => getPreviousDateRange(dateStart, dateEnd), [dateStart, dateEnd])
 
-  const filterData = useCallback((data: SalesRecord[], months: string[]) => {
-    let filtered = filterByPeriod(data, months)
+  const filterData = useCallback((data: SalesRecord[], start: string, end: string) => {
+    let filtered = data.filter(r => r.date >= start && r.date <= end)
     if (selectedRegions.length > 0) filtered = filtered.filter(r => selectedRegions.includes(r.region))
     if (selectedStores.length > 0) filtered = filtered.filter(r => selectedStores.includes(r.store_id))
     if (selectedCategories.length > 0) filtered = filtered.filter(r => selectedCategories.includes(r.category))
@@ -74,8 +52,8 @@ export default function App() {
     return filtered
   }, [selectedRegions, selectedStores, selectedCategories, selectedChannels])
 
-  const currentData = useMemo(() => filterData(salesData, currentMonths), [filterData, currentMonths])
-  const previousData = useMemo(() => filterData(salesData, previousMonths), [filterData, previousMonths])
+  const currentData = useMemo(() => filterData(salesData, dateStart, dateEnd), [filterData, dateStart, dateEnd])
+  const previousData = useMemo(() => filterData(salesData, previousRange.start, previousRange.end), [filterData, previousRange])
 
   const handleExportPNG = useCallback(async () => {
     const html2canvas = (await import('html2canvas')).default
@@ -109,14 +87,16 @@ export default function App() {
         </div>
 
         <Filters
-          periodType={periodType}
-          selectedPeriod={selectedPeriod}
+          granularity={granularity}
+          dateStart={dateStart}
+          dateEnd={dateEnd}
           regions={selectedRegions}
           stores={selectedStores}
           categories={selectedCategories}
           channels={selectedChannels}
-          onPeriodTypeChange={setPeriodType}
-          onPeriodChange={setSelectedPeriod}
+          onGranularityChange={setGranularity}
+          onDateStartChange={setDateStart}
+          onDateEndChange={setDateEnd}
           onRegionsChange={setSelectedRegions}
           onStoresChange={setSelectedStores}
           onCategoriesChange={setSelectedCategories}
@@ -125,9 +105,9 @@ export default function App() {
 
         <div id="dashboard-content" className="mt-4 space-y-4">
           <KPICards current={currentData} previous={previousData} />
-          <Charts data={currentData} />
+          <Charts data={currentData} granularity={granularity} />
           <SalesTable data={currentData} previousData={previousData} />
-          <Insights data={currentData} allData={salesData} />
+          <Insights data={currentData} allData={salesData} dateStart={dateStart} dateEnd={dateEnd} />
         </div>
       </div>
     </div>

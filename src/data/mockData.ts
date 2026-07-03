@@ -24,9 +24,14 @@ function seededRandom(seed: number): number {
   return x - Math.floor(x)
 }
 
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate()
+}
+
 function generateMockData(): SalesRecord[] {
   const records: SalesRecord[] = []
   let recordIndex = 0
+  const year = 2025
 
   for (const store of storeNames) {
     for (const category of categories) {
@@ -37,9 +42,6 @@ function generateMockData(): SalesRecord[] {
           const baseRevenue = 80000 + seededRandom(recordIndex * 7) * 400000
           const baseTransactions = 50 + seededRandom(recordIndex * 13) * 500
           const baseUnits = 30 + seededRandom(recordIndex * 17) * 300
-
-          const monthStr = String(month).padStart(2, '0')
-          const date = `2025-${monthStr}-01`
 
           let trendMultiplier = 1
           if (growthStores.has(store.id)) {
@@ -59,22 +61,44 @@ function generateMockData(): SalesRecord[] {
           }
 
           const channelMultiplier = channel === 'Онлайн' ? 0.7 : 1
+          const noise = 0.85 + seededRandom(recordIndex * 11) * 0.3
 
-          const revenue = Math.round(baseRevenue * trendMultiplier * seasonalityMultiplier * channelMultiplier * (0.85 + seededRandom(recordIndex * 11) * 0.3))
-          const transactions = Math.round(baseTransactions * trendMultiplier * seasonalityMultiplier * channelMultiplier * (0.85 + seededRandom(recordIndex * 19) * 0.3))
-          const units_sold = Math.round(baseUnits * trendMultiplier * seasonalityMultiplier * channelMultiplier * (0.85 + seededRandom(recordIndex * 23) * 0.3))
+          const monthRevenue = Math.round(baseRevenue * trendMultiplier * seasonalityMultiplier * channelMultiplier * noise)
+          const monthTransactions = Math.round(baseTransactions * trendMultiplier * seasonalityMultiplier * channelMultiplier * (0.85 + seededRandom(recordIndex * 19) * 0.3))
+          const monthUnits = Math.round(baseUnits * trendMultiplier * seasonalityMultiplier * channelMultiplier * (0.85 + seededRandom(recordIndex * 23) * 0.3))
 
-          records.push({
-            date,
-            region: store.region,
-            store_id: store.id,
-            store_name: store.name,
-            category,
-            channel,
-            revenue,
-            transactions,
-            units_sold,
-          })
+          const dim = daysInMonth(year, month)
+          let remainingRev = monthRevenue
+          let remainingTrx = monthTransactions
+          let remainingUnits = monthUnits
+
+          for (let day = 1; day <= dim; day++) {
+            const isLast = day === dim
+            const daysLeft = dim - day + 1
+            const fraction = isLast ? 1 : (0.7 + seededRandom(recordIndex * 100 + day * 7) * 0.6) / daysLeft
+
+            const rev = Math.round(remainingRev * fraction)
+            const trx = Math.round(remainingTrx * fraction)
+            const units = Math.round(remainingUnits * fraction)
+
+            remainingRev -= rev
+            remainingTrx -= trx
+            remainingUnits -= units
+
+            const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+            records.push({
+              date,
+              region: store.region,
+              store_id: store.id,
+              store_name: store.name,
+              category,
+              channel,
+              revenue: Math.max(0, rev),
+              transactions: Math.max(0, trx),
+              units_sold: Math.max(0, units),
+            })
+          }
         }
       }
     }
