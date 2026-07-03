@@ -6,17 +6,19 @@ const storeOptions = [
   'Store_01', 'Store_02', 'Store_03', 'Store_04', 'Store_05',
   'Store_06', 'Store_07', 'Store_08', 'Store_09', 'Store_10',
 ]
+const managers = ['Иванов', 'Петрова', 'Сидоров', 'Кузнецов', 'Смирнова', 'Васильев', 'Федорова', 'Морозов', 'Новикова', 'Козлов']
 const categories = ['Электроника', 'Одежда', 'Продукты', 'Товары для дома']
-const channels = ['Онлайн', 'Офлайн']
+const sources = ['Сайт', 'Офлайн', 'Маркетплейс']
 
 interface MultiSelectProps {
   label: string
   options: string[]
   selected: string[]
   onChange: (selected: string[]) => void
+  slim?: boolean
 }
 
-function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
+function MultiSelect({ label, options, selected, onChange, slim }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -50,10 +52,12 @@ function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full text-left px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer flex items-center justify-between"
+        className={`w-full text-left bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer flex items-center justify-between ${
+          slim ? 'px-2 py-1.5' : 'px-3 py-2'
+        }`}
       >
-        <span className={selected.length === 0 ? 'text-gray-400' : ''}>{displayText}</span>
-        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className={selected.length === 0 ? 'text-gray-400 truncate' : 'truncate'}>{displayText}</span>
+        <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -85,101 +89,83 @@ interface FiltersProps {
   dateEnd: string
   regions: string[]
   stores: string[]
+  managers: string[]
   categories: string[]
-  channels: string[]
+  sources: string[]
   onGranularityChange: (g: Granularity) => void
   onDateStartChange: (d: string) => void
   onDateEndChange: (d: string) => void
   onRegionsChange: (r: string[]) => void
   onStoresChange: (s: string[]) => void
+  onManagersChange: (m: string[]) => void
   onCategoriesChange: (c: string[]) => void
-  onChannelsChange: (c: string[]) => void
+  onSourcesChange: (c: string[]) => void
 }
 
 export default function Filters({
   granularity, dateStart, dateEnd,
   regions: selectedRegions, stores: selectedStores,
-  categories: selectedCategories, channels: selectedChannels,
+  managers: selectedManagers,
+  categories: selectedCategories, sources: selectedSources,
   onGranularityChange, onDateStartChange, onDateEndChange,
-  onRegionsChange, onStoresChange, onCategoriesChange, onChannelsChange,
+  onRegionsChange, onStoresChange, onManagersChange,
+  onCategoriesChange, onSourcesChange,
 }: FiltersProps) {
   return (
     <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 pb-4 pt-4 px-0">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Детализация</label>
-          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
-            {(['day', 'week', 'month'] as const).map(g => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => onGranularityChange(g)}
-                className={`px-3 py-1.5 text-sm rounded-md cursor-pointer ${
-                  granularity === g
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                {g === 'day' ? 'День' : g === 'week' ? 'Неделя' : 'Месяц'}
-              </button>
-            ))}
+          <label className="block text-xs font-medium text-gray-500 mb-1">Период</label>
+          <div className="flex flex-wrap gap-1">
+            <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
+              {(['day', 'week', 'month'] as const).map(g => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => onGranularityChange(g)}
+                  className={`px-2.5 py-1.5 text-sm rounded-md cursor-pointer ${
+                    granularity === g
+                      ? 'bg-gray-800 text-white'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  {g === 'day' ? 'День' : g === 'week' ? 'Нед' : 'Мес'}
+                </button>
+              ))}
+            </div>
+            <input
+              type="date"
+              value={dateStart}
+              onChange={e => onDateStartChange(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 w-[135px]"
+            />
+            <input
+              type="date"
+              value={dateEnd}
+              onChange={e => onDateEndChange(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 w-[135px]"
+            />
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">С</label>
-          <input
-            type="date"
-            value={dateStart}
-            onChange={e => onDateStartChange(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">По</label>
-          <input
-            type="date"
-            value={dateEnd}
-            onChange={e => onDateEndChange(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
-          />
+        <div className="min-w-[120px]">
+          <MultiSelect label="Источник" options={sources} selected={selectedSources} onChange={onSourcesChange} slim />
         </div>
 
         <div className="min-w-[140px]">
-          <MultiSelect
-            label="Регион"
-            options={regions}
-            selected={selectedRegions}
-            onChange={onRegionsChange}
-          />
-        </div>
-
-        <div className="min-w-[140px]">
-          <MultiSelect
-            label="Магазин"
-            options={storeOptions}
-            selected={selectedStores}
-            onChange={onStoresChange}
-          />
-        </div>
-
-        <div className="min-w-[140px]">
-          <MultiSelect
-            label="Категория"
-            options={categories}
-            selected={selectedCategories}
-            onChange={onCategoriesChange}
-          />
+          <MultiSelect label="Продукт/Категория" options={categories} selected={selectedCategories} onChange={onCategoriesChange} slim />
         </div>
 
         <div className="min-w-[120px]">
-          <MultiSelect
-            label="Канал"
-            options={channels}
-            selected={selectedChannels}
-            onChange={onChannelsChange}
-          />
+          <MultiSelect label="Менеджер" options={managers} selected={selectedManagers} onChange={onManagersChange} slim />
+        </div>
+
+        <div className="min-w-[120px]">
+          <MultiSelect label="Регион" options={regions} selected={selectedRegions} onChange={onRegionsChange} slim />
+        </div>
+
+        <div className="min-w-[110px]">
+          <MultiSelect label="Магазин" options={storeOptions} selected={selectedStores} onChange={onStoresChange} slim />
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend,
+  BarChart, Bar, PieChart, Pie, Cell,
 } from 'recharts'
 import type { SalesRecord, Granularity } from '../types'
 
@@ -16,8 +16,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Продукты': '#d97706',
   'Товары для дома': '#7c3aed',
 }
-const CHANNEL_COLORS = ['#2563eb', '#d1d5db']
+const SOURCE_COLORS = ['#2563eb', '#d1d5db', '#f59e0b']
 const REGION_COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed']
+const MANAGER_COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#9333ea', '#ea580c']
 
 const monthLabels: Record<string, string> = {
   '01': 'Янв', '02': 'Фев', '03': 'Мар', '04': 'Апр',
@@ -47,8 +48,6 @@ function formatTooltipLabel(granularity: Granularity, label: string): string {
 interface AggregateEntry {
   label: string
   revenue: number
-  transactions: number
-  units_sold: number
   [category: string]: string | number
 }
 
@@ -67,10 +66,8 @@ function aggregateByGranularity(data: SalesRecord[], g: Granularity): AggregateE
       key = r.date.slice(5, 7)
     }
 
-    const existing = map.get(key) || { label: key, revenue: 0, transactions: 0, units_sold: 0 }
+    const existing = map.get(key) || { label: key, revenue: 0 }
     existing.revenue += r.revenue
-    existing.transactions += r.transactions
-    existing.units_sold += r.units_sold
     map.set(key, existing)
   }
 
@@ -108,13 +105,9 @@ function aggregateCategoriesByPeriod(data: SalesRecord[], g: Granularity): Aggre
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, v]) => {
       const obj: Record<string, string | number> = { label: v.label }
-      let total = 0
       for (const cat of cats) {
-        const val = v.categories.get(cat) || 0
-        obj[cat] = val
-        total += val
+        obj[cat] = v.categories.get(cat) || 0
       }
-      obj.revenue = total
       return obj as unknown as AggregateEntry
     })
 }
@@ -124,10 +117,6 @@ const formatRevenue = (v: number) => {
   if (v >= 1_000) return `${(v / 1_000).toFixed(0)} тыс`
   return String(v)
 }
-
-const renderColorfulLegendText = (value: string) => (
-  <span className="text-xs text-gray-600">{value}</span>
-)
 
 export default function Charts({ data, granularity }: ChartsProps) {
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set())
@@ -145,13 +134,13 @@ export default function Charts({ data, granularity }: ChartsProps) {
       .sort((a, b) => b.revenue - a.revenue)
   }, [data])
 
-  const channelData = useMemo(() => {
+  const sourceData = useMemo(() => {
     const map = new Map<string, number>()
     for (const r of data) {
-      map.set(r.channel, (map.get(r.channel) || 0) + r.revenue)
+      map.set(r.source, (map.get(r.source) || 0) + r.revenue)
     }
     return Array.from(map.entries())
-      .map(([channel, value]) => ({ channel, value }))
+      .map(([source, value]) => ({ source, value }))
   }, [data])
 
   const topStoresData = useMemo(() => {
@@ -168,6 +157,23 @@ export default function Charts({ data, granularity }: ChartsProps) {
       .sort(([, a], [, b]) => b.revenue - a.revenue)
       .slice(0, 10)
       .map(([, v]) => ({ store: v.store_name, revenue: v.revenue }))
+  }, [data])
+
+  const managerData = useMemo(() => {
+    const map = new Map<string, { revenue: number; transactions: number }>()
+    for (const r of data) {
+      const existing = map.get(r.manager) || { revenue: 0, transactions: 0 }
+      existing.revenue += r.revenue
+      existing.transactions += r.transactions
+      map.set(r.manager, existing)
+    }
+    return Array.from(map.entries())
+      .map(([manager, stats]) => ({
+        manager,
+        revenue: stats.revenue,
+        transactions: stats.transactions,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
   }, [data])
 
   const cats = ['Электроника', 'Одежда', 'Продукты', 'Товары для дома']
@@ -209,13 +215,7 @@ export default function Charts({ data, granularity }: ChartsProps) {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={timeSeriesData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis
-              dataKey="label"
-              tickFormatter={timeXFormatter}
-              tick={{ fontSize: 11 }}
-              stroke="#9ca3af"
-              interval="preserveStartEnd"
-            />
+            <XAxis dataKey="label" tickFormatter={timeXFormatter} tick={{ fontSize: 11 }} stroke="#9ca3af" interval="preserveStartEnd" />
             <YAxis tickFormatter={formatRevenue} tick={{ fontSize: 12 }} stroke="#9ca3af" />
             <Tooltip
               labelFormatter={(l) => formatTooltipLabel(granularity, l as string)}
@@ -227,7 +227,7 @@ export default function Charts({ data, granularity }: ChartsProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 lg:col-span-2">
-        <h3 className="text-sm font-medium text-gray-500 mb-4">Динамика по категориям</h3>
+        <h3 className="text-sm font-medium text-gray-500 mb-4">Динамика по продуктам/категориям</h3>
         <div className="flex flex-wrap gap-3 mb-3">
           {cats.map(cat => (
             <button
@@ -248,26 +248,14 @@ export default function Charts({ data, granularity }: ChartsProps) {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={categoryData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis
-              dataKey="label"
-              tickFormatter={categoryXFormatter}
-              tick={{ fontSize: 11 }}
-              stroke="#9ca3af"
-              interval="preserveStartEnd"
-            />
+            <XAxis dataKey="label" tickFormatter={categoryXFormatter} tick={{ fontSize: 11 }} stroke="#9ca3af" interval="preserveStartEnd" />
             <YAxis tickFormatter={formatRevenue} tick={{ fontSize: 12 }} stroke="#9ca3af" />
             <Tooltip
               labelFormatter={(l) => formatTooltipLabel(granularity, l as string)}
               formatter={(v, name) => [formatCurrency(v as number), name as string]}
             />
             {cats.map(cat => (
-              <Bar
-                key={cat}
-                dataKey={cat}
-                stackId="a"
-                fill={CATEGORY_COLORS[cat]}
-                hide={hiddenCategories.has(cat)}
-              />
+              <Bar key={cat} dataKey={cat} stackId="a" fill={CATEGORY_COLORS[cat]} hide={hiddenCategories.has(cat)} />
             ))}
           </BarChart>
         </ResponsiveContainer>
@@ -291,27 +279,43 @@ export default function Charts({ data, granularity }: ChartsProps) {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h3 className="text-sm font-medium text-gray-500 mb-4">Доли каналов сбыта</h3>
+        <h3 className="text-sm font-medium text-gray-500 mb-4">Распределение по менеджерам</h3>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={managerData} layout="vertical" margin={{ left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis type="number" tickFormatter={formatRevenue} tick={{ fontSize: 12 }} stroke="#9ca3af" />
+            <YAxis type="category" dataKey="manager" tick={{ fontSize: 12 }} stroke="#9ca3af" width={80} />
+            <Tooltip formatter={(v) => [formatCurrency(v as number), 'Выручка']} />
+            <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
+              {managerData.map((_, i) => (
+                <Cell key={i} fill={MANAGER_COLORS[i % MANAGER_COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 className="text-sm font-medium text-gray-500 mb-4">Доли источников</h3>
         <ResponsiveContainer width="100%" height={280}>
           <PieChart>
             <Pie
-              data={channelData}
+              data={sourceData}
               cx="50%"
               cy="50%"
               innerRadius={70}
               outerRadius={100}
               dataKey="value"
-              nameKey="channel"
-              label={({ channel, percent }: { channel?: string; percent?: number }) =>
-                `${channel} ${((percent ?? 0) * 100).toFixed(0)}%`
+              nameKey="source"
+              label={({ source, percent }: { source?: string; percent?: number }) =>
+                `${source} ${((percent ?? 0) * 100).toFixed(0)}%`
               }
             >
-              {channelData.map((_, i) => (
-                <Cell key={i} fill={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} />
+              {sourceData.map((_, i) => (
+                <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip formatter={(v) => [formatCurrency(v as number), 'Выручка']} />
-            <Legend formatter={renderColorfulLegendText} />
           </PieChart>
         </ResponsiveContainer>
       </div>

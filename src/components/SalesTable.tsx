@@ -31,24 +31,27 @@ export default function SalesTable({ data, previousData }: SalesTableProps) {
   }
 
   const prevMap = useMemo(() => {
-    const map = new Map<string, { revenue: number; transactions: number; units_sold: number }>()
+    const map = new Map<string, { revenue: number; transactions: number; leads: number }>()
     for (const r of previousData) {
-      const prev = map.get(r.store_id) || { revenue: 0, transactions: 0, units_sold: 0 }
+      const prev = map.get(r.store_id) || { revenue: 0, transactions: 0, leads: 0 }
       prev.revenue += r.revenue
       prev.transactions += r.transactions
-      prev.units_sold += r.units_sold
+      prev.leads += r.leads
       map.set(r.store_id, prev)
     }
     return map
   }, [previousData])
 
   const rows = useMemo(() => {
-    const storeMap = new Map<string, { store_id: string; store_name: string; region: string; revenue: number; transactions: number; units_sold: number }>()
+    const storeMap = new Map<string, { store_id: string; store_name: string; manager: string; region: string; revenue: number; transactions: number; leads: number }>()
     for (const r of data) {
-      const existing = storeMap.get(r.store_id) || { store_id: r.store_id, store_name: r.store_name, region: r.region, revenue: 0, transactions: 0, units_sold: 0 }
+      const existing = storeMap.get(r.store_id) || {
+        store_id: r.store_id, store_name: r.store_name, manager: r.manager, region: r.region,
+        revenue: 0, transactions: 0, leads: 0,
+      }
       existing.revenue += r.revenue
       existing.transactions += r.transactions
-      existing.units_sold += r.units_sold
+      existing.leads += r.leads
       storeMap.set(r.store_id, existing)
     }
 
@@ -59,9 +62,12 @@ export default function SalesTable({ data, previousData }: SalesTableProps) {
       const dynamics = Math.round(((v.revenue - prevRevenue) / prevRevenue) * 100 * 100) / 100
       result.push({
         store_name: v.store_name,
+        manager: v.manager,
         region: v.region,
         revenue: v.revenue,
         transactions: v.transactions,
+        leads: v.leads,
+        conversion: v.leads > 0 ? Math.round((v.transactions / v.leads) * 10000) / 100 : 0,
         avgCheck: v.transactions > 0 ? Math.round(v.revenue / v.transactions) : 0,
         dynamics,
       })
@@ -81,9 +87,12 @@ export default function SalesTable({ data, previousData }: SalesTableProps) {
 
   const columns: { key: SortKey; label: string; align?: string }[] = [
     { key: 'store_name', label: 'Магазин' },
+    { key: 'manager', label: 'Менеджер' },
     { key: 'region', label: 'Регион' },
     { key: 'revenue', label: 'Выручка', align: 'text-right' },
-    { key: 'transactions', label: 'Транзакции', align: 'text-right' },
+    { key: 'transactions', label: 'Продажи', align: 'text-right' },
+    { key: 'leads', label: 'Заявки', align: 'text-right' },
+    { key: 'conversion', label: 'Конверсия', align: 'text-right' },
     { key: 'avgCheck', label: 'Средний чек', align: 'text-right' },
     { key: 'dynamics', label: 'Динамика', align: 'text-right' },
   ]
@@ -98,7 +107,7 @@ export default function SalesTable({ data, previousData }: SalesTableProps) {
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-4 py-3 font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none ${col.align || 'text-left'}`}
+                  className={`px-3 py-3 font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none whitespace-nowrap ${col.align || 'text-left'}`}
                 >
                   <span className="flex items-center gap-1">
                     {col.label}
@@ -115,12 +124,15 @@ export default function SalesTable({ data, previousData }: SalesTableProps) {
           <tbody>
             {rows.map((row, idx) => (
               <tr key={row.store_name + idx} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-900">{row.store_name}</td>
-                <td className="px-4 py-3 text-gray-600">{row.region}</td>
-                <td className={`px-4 py-3 text-gray-900 text-right`}>{formatCurrency(row.revenue)}</td>
-                <td className={`px-4 py-3 text-gray-900 text-right`}>{formatNumber(row.transactions)}</td>
-                <td className={`px-4 py-3 text-gray-900 text-right`}>{formatCurrency(row.avgCheck)}</td>
-                <td className={`px-4 py-3 text-right`}>
+                <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{row.store_name}</td>
+                <td className="px-3 py-3 text-gray-600">{row.manager}</td>
+                <td className="px-3 py-3 text-gray-600">{row.region}</td>
+                <td className="px-3 py-3 text-gray-900 text-right whitespace-nowrap">{formatCurrency(row.revenue)}</td>
+                <td className="px-3 py-3 text-gray-900 text-right whitespace-nowrap">{formatNumber(row.transactions)}</td>
+                <td className="px-3 py-3 text-gray-900 text-right whitespace-nowrap">{formatNumber(row.leads)}</td>
+                <td className="px-3 py-3 text-right whitespace-nowrap">{row.conversion}%</td>
+                <td className="px-3 py-3 text-gray-900 text-right whitespace-nowrap">{formatCurrency(row.avgCheck)}</td>
+                <td className={`px-3 py-3 text-right whitespace-nowrap`}>
                   <span className={`inline-flex items-center gap-1 ${row.dynamics >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={row.dynamics >= 0 ? 'M5 10l7-7m0 0l7 7m-7-7v18' : 'M19 14l-7 7m0 0l-7-7m7 7V3'} />

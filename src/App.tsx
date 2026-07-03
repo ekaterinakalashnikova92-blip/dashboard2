@@ -38,8 +38,9 @@ export default function App() {
   const [dateEnd, setDateEnd] = useState(bounds.max)
   const [selectedRegions, setSelectedRegions] = useState<string[]>([])
   const [selectedStores, setSelectedStores] = useState<string[]>([])
+  const [selectedManagers, setSelectedManagers] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([])
+  const [selectedSources, setSelectedSources] = useState<string[]>([])
 
   const previousRange = useMemo(() => getPreviousDateRange(dateStart, dateEnd), [dateStart, dateEnd])
 
@@ -47,10 +48,11 @@ export default function App() {
     let filtered = data.filter(r => r.date >= start && r.date <= end)
     if (selectedRegions.length > 0) filtered = filtered.filter(r => selectedRegions.includes(r.region))
     if (selectedStores.length > 0) filtered = filtered.filter(r => selectedStores.includes(r.store_id))
+    if (selectedManagers.length > 0) filtered = filtered.filter(r => selectedManagers.includes(r.manager))
     if (selectedCategories.length > 0) filtered = filtered.filter(r => selectedCategories.includes(r.category))
-    if (selectedChannels.length > 0) filtered = filtered.filter(r => selectedChannels.includes(r.channel))
+    if (selectedSources.length > 0) filtered = filtered.filter(r => selectedSources.includes(r.source))
     return filtered
-  }, [selectedRegions, selectedStores, selectedCategories, selectedChannels])
+  }, [selectedRegions, selectedStores, selectedManagers, selectedCategories, selectedSources])
 
   const currentData = useMemo(() => filterData(salesData, dateStart, dateEnd), [filterData, dateStart, dateEnd])
   const previousData = useMemo(() => filterData(salesData, previousRange.start, previousRange.end), [filterData, previousRange])
@@ -92,15 +94,17 @@ export default function App() {
           dateEnd={dateEnd}
           regions={selectedRegions}
           stores={selectedStores}
+          managers={selectedManagers}
           categories={selectedCategories}
-          channels={selectedChannels}
+          sources={selectedSources}
           onGranularityChange={setGranularity}
           onDateStartChange={setDateStart}
           onDateEndChange={setDateEnd}
           onRegionsChange={setSelectedRegions}
           onStoresChange={setSelectedStores}
+          onManagersChange={setSelectedManagers}
           onCategoriesChange={setSelectedCategories}
-          onChannelsChange={setSelectedChannels}
+          onSourcesChange={setSelectedSources}
         />
 
         <div id="dashboard-content" className="mt-4 space-y-4">

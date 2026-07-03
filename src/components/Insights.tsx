@@ -54,9 +54,16 @@ export default function Insights({ data, allData, dateStart, dateEnd }: Insights
       result.push(`Категория "${topCategory[0]}" приносит ${catPercent}% выручки.`)
     }
 
-    const onlineRevenue = data.filter(r => r.channel === 'Онлайн').reduce((s, r) => s + r.revenue, 0)
-    const onlinePercent = Math.round((onlineRevenue / totalRevenue) * 100)
-    result.push(`Доля онлайн-продаж составляет ${onlinePercent}%.`)
+    const bestSource = data.reduce<{ source: string; revenue: number }[]>((acc, r) => {
+      const existing = acc.find(s => s.source === r.source)
+      if (existing) existing.revenue += r.revenue
+      else acc.push({ source: r.source, revenue: r.revenue })
+      return acc
+    }, []).sort((a, b) => b.revenue - a.revenue)[0]
+    if (bestSource) {
+      const sourcePercent = Math.round((bestSource.revenue / totalRevenue) * 100)
+      result.push(`Основной источник продаж — "${bestSource.source}" (${sourcePercent}% выручки).`)
+    }
 
     const allTotalRevenue = allData.reduce((s, r) => s + r.revenue, 0)
     if (allTotalRevenue > 0) {
@@ -132,29 +139,32 @@ export default function Insights({ data, allData, dateStart, dateEnd }: Insights
       }
     }
 
-    const channelRevenue = new Map<string, { current: number; previous: number }>()
+    const sourceRevenue = new Map<string, { current: number; previous: number }>()
     const months = Array.from(monthRevenue.entries()).sort(([a], [b]) => a.localeCompare(b))
     for (const r of data) {
-      if (!channelRevenue.has(r.channel)) {
-        channelRevenue.set(r.channel, { current: 0, previous: 0 })
+      if (!sourceRevenue.has(r.source)) {
+        sourceRevenue.set(r.source, { current: 0, previous: 0 })
       }
       const m = r.date.slice(0, 7)
       const isCurrent = months.length > 0 && m === months[months.length - 1][0]
       const isPrev = months.length > 1 && m === months[months.length - 2][0]
-      const entry = channelRevenue.get(r.channel)!
+      const entry = sourceRevenue.get(r.source)!
       if (isCurrent) entry.current += r.revenue
       if (isPrev) entry.previous += r.revenue
     }
 
-    const online = channelRevenue.get('Онлайн')
-    const offline = channelRevenue.get('Офлайн')
-    if (online && offline && online.previous > 0 && offline.previous > 0) {
-      const onlineGrowth = ((online.current - online.previous) / online.previous) * 100
-      const offlineGrowth = ((offline.current - offline.previous) / offline.previous) * 100
+    const sources = Array.from(sourceRevenue.entries())
+      .filter(([, v]) => v.previous > 0 && v.current > 0)
+      .sort(([, a], [, b]) => (b.current - b.previous) - (a.current - a.previous))
+    if (sources.length >= 2) {
+      const best = sources[sources.length - 1]
+      const worst = sources[0]
+      const bestGrowth = ((best[1].current - best[1].previous) / best[1].previous) * 100
+      const worstGrowth = ((worst[1].current - worst[1].previous) / worst[1].previous) * 100
       insights.push({
-        text: `Онлайн-канал растёт быстрее Офлайн (${formatPercent(onlineGrowth)} vs ${formatPercent(offlineGrowth)})`,
-        direction: onlineGrowth >= offlineGrowth ? 'up' : 'down',
-        value: formatPercent(onlineGrowth - offlineGrowth),
+        text: `Источник "${best[0]}" растёт быстрее "${worst[0]}" (${formatPercent(bestGrowth)} vs ${formatPercent(worstGrowth)})`,
+        direction: bestGrowth >= worstGrowth ? 'up' : 'down',
+        value: formatPercent(bestGrowth - worstGrowth),
       })
     }
 
